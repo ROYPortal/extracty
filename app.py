@@ -1,7 +1,7 @@
-from pathlib import Path
-from tkinter import Tk, Canvas, Text, Button, PhotoImage, messagebox, filedialog
+from tkinter import Tk, Canvas, Text, Button, PhotoImage, messagebox, filedialog, Menu
 import os
 import shutil
+from pathlib import Path
 
 # Define the path to the assets
 OUTPUT_PATH = Path(__file__).parent
@@ -22,7 +22,6 @@ def select_destination_folder():
     entry_2.delete('1.0', 'end')
     entry_2.insert('1.0', folder_selected)
 
-# Function to find and copy files
 def find_and_copy_files():
     search_folder = entry_1.get('1.0', 'end').strip()
     destination_folder = entry_2.get('1.0', 'end').strip()
@@ -39,12 +38,50 @@ def find_and_copy_files():
                 source_path = os.path.join(root, file)
                 destination_path = os.path.join(destination_folder, file)
                 shutil.copy2(source_path, destination_path)
-                found_files.append(source_path)
+                found_files.append((source_path, destination_path))
     
     if not found_files:
         messagebox.showinfo("Result", "No files found from the list.")
+        return
+    
+    # Verify files in the destination
+    successful_copies = 0
+    for source, destination in found_files:
+        if os.path.exists(destination):
+            successful_copies += 1
+        else:
+            print(f"Failed to copy: {source}")
+    
+    # Update message to include verification result
+    if successful_copies == len(found_files):
+        messagebox.showinfo("Result", f"Successfully copied {successful_copies} files.")
     else:
-        messagebox.showinfo("Result", f"Found and copied {len(found_files)} files.")
+        messagebox.showinfo("Result", f"Copied {successful_copies}/{len(found_files)} files. Some files may not have been copied successfully.")
+
+def show_about():
+    messagebox.showinfo("About", "Extracty\nFor bulk image operations.\nVersion 1.0")
+
+def verify_files_in_destination():
+    destination_folder = entry_2.get('1.0', 'end').strip()
+    file_basenames = entry_3.get('1.0', 'end').strip().split('\n')
+    
+    if not os.path.exists(destination_folder):
+        messagebox.showinfo("Verification Result", "Destination folder does not exist.")
+        return
+    
+    missing_files = []
+    for file_basename in file_basenames:
+        # Assuming files retain their original extension in the destination
+        # Modify as needed if the extension could change or be varied
+        files_in_destination = [f for f in os.listdir(destination_folder) if os.path.splitext(f)[0] == file_basename]
+        if not files_in_destination:
+            missing_files.append(file_basename)
+    
+    if not missing_files:
+        messagebox.showinfo("Verification Result", "All listed files are present in the destination folder.")
+    else:
+        missing_files_str = ", ".join(missing_files)
+        messagebox.showinfo("Verification Result", f"The following files are missing: {missing_files_str}")
 
 
 # Setup the main window
@@ -87,7 +124,7 @@ canvas.create_text(
     38.0,
     77.0,
     anchor="nw",
-    text="For Matt to use when selecting and pasting\nimages in bulk.",
+    text="For Matt to use when selecting and pasting\nimages in bulk.\n \nThis version is v2.1-CAUST-main",
     fill="#C9C9C9",
     font=("Inter", 15 * -1)
 )
@@ -219,6 +256,17 @@ canvas.create_text(
     fill="#FFFFFF",
     font=("Inter", 15 * -1)
 )
+
+menu_bar = Menu(window, bg="#0C0C0C", fg="#FFFFFF", relief='flat')
+window.config(menu=menu_bar)
+
+file_menu = Menu(menu_bar, tearoff=0, bg="#0C0C0C", fg="#FFFFFF")
+menu_bar.add_cascade(label="Verify Destination Extraction", menu=file_menu)
+# Assuming the `file_menu` and `menu_bar` are already created as shown in your code snippet
+file_menu.add_command(label="Verify Files in Destination", command=verify_files_in_destination)
+
+
+
 button_1.configure(command=select_search_folder)
 button_2.configure(command=select_destination_folder)
 button_3.configure(command=find_and_copy_files)
