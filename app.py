@@ -2,6 +2,8 @@ from tkinter import Tk, Canvas, Text, Button, PhotoImage, messagebox, filedialog
 import os
 import shutil
 from pathlib import Path
+import openpyxl
+from openpyxl.styles import PatternFill
 
 # Define the path to the assets
 OUTPUT_PATH = Path(__file__).parent
@@ -11,16 +13,19 @@ def relative_to_assets(path: str) -> Path:
     """Utility function to get the absolute path to the assets directory."""
     return ASSETS_PATH / Path(path)
 
+
 # Functions to open directory selection dialogs and insert the chosen path into entry fields
 def select_search_folder():
     folder_selected = filedialog.askdirectory()
     entry_1.delete('1.0', 'end')
     entry_1.insert('1.0', folder_selected)
 
+
 def select_destination_folder():
     folder_selected = filedialog.askdirectory()
     entry_2.delete('1.0', 'end')
     entry_2.insert('1.0', folder_selected)
+
 
 def find_and_copy_files():
     search_folder = entry_1.get('1.0', 'end').strip()
@@ -31,32 +36,60 @@ def find_and_copy_files():
         os.makedirs(destination_folder)
     
     found_files = []
+    copy_results = []
     for root, dirs, files in os.walk(search_folder):
         for file in files:
             file_basename, file_extension = os.path.splitext(file)
             if file_basename in file_basenames:
                 source_path = os.path.join(root, file)
                 destination_path = os.path.join(destination_folder, file)
-                shutil.copy2(source_path, destination_path)
-                found_files.append((source_path, destination_path))
+                try:
+                    shutil.copy2(source_path, destination_path)
+                    found_files.append((source_path, destination_path, True))
+                except Exception as e:
+                    found_files.append((source_path, destination_path, False))
     
     if not found_files:
         messagebox.showinfo("Result", "No files found from the list.")
         return
     
-    # Verify files in the destination
-    successful_copies = 0
-    for source, destination in found_files:
-        if os.path.exists(destination):
-            successful_copies += 1
-        else:
-            print(f"Failed to copy: {source}")
+    successful_copies = [f for f in found_files if f[2]]
+    failed_copies = [f for f in found_files if not f[2]]
     
     # Update message to include verification result
-    if successful_copies == len(found_files):
-        messagebox.showinfo("Result", f"Successfully copied {successful_copies} files.")
+    if len(successful_copies) == len(found_files):
+        messagebox.showinfo("Result", f"Successfully copied {len(successful_copies)} files.")
     else:
-        messagebox.showinfo("Result", f"Copied {successful_copies}/{len(found_files)} files. Some files may not have been copied successfully.")
+        messagebox.showinfo("Result", f"Copied {len(successful_copies)}/{len(found_files)} files. Some files may not have been copied successfully.")
+    
+    return successful_copies, failed_copies
+
+def export_to_excel(successful_copies, failed_copies):
+    # Create a workbook and select the active worksheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    
+    # Define fills
+    green_fill = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
+    red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
+    
+    # Write headers
+    headers = ['File Path', 'Status']
+    ws.append(headers)
+    
+    # Write data to Excel
+    for file in successful_copies:
+        ws.append([file[1], 'Success'])
+        ws.cell(row=ws.max_row, column=2).fill = green_fill
+    
+    for file in failed_copies:
+        ws.append([file[1], 'Failed'])
+        ws.cell(row=ws.max_row, column=2).fill = red_fill
+    
+    # Save the workbook
+    excel_path = os.path.join(OUTPUT_PATH, "copy_results.xlsx")
+    wb.save(excel_path)
+    messagebox.showinfo("Export Complete", f"Results have been exported to {excel_path}")
 
 def show_about():
     messagebox.showinfo("About", "Extracty\nFor bulk image operations.\nVersion 1.0")
@@ -71,8 +104,6 @@ def verify_files_in_destination():
     
     missing_files = []
     for file_basename in file_basenames:
-        # Assuming files retain their original extension in the destination
-        # Modify as needed if the extension could change or be varied
         files_in_destination = [f for f in os.listdir(destination_folder) if os.path.splitext(f)[0] == file_basename]
         if not files_in_destination:
             missing_files.append(file_basename)
@@ -84,12 +115,10 @@ def verify_files_in_destination():
         messagebox.showinfo("Verification Result", f"The following files are missing: {missing_files_str}")
 
 
-# Setup the main window
 window = Tk()
 window.geometry("1050x586")
 window.configure(bg="#FFFFFF")
 
-# Create the canvas and the design elements as per your design
 canvas = Canvas(window, bg="#FFFFFF", height=586, width=1050, bd=0, highlightthickness=0, relief="ridge")
 canvas.place(x=0, y=0)
 canvas = Canvas(
@@ -124,7 +153,7 @@ canvas.create_text(
     38.0,
     77.0,
     anchor="nw",
-    text="For Matt to use when selecting and pasting\nimages in bulk.\n \nThis version is v2.1-CAUST-main",
+    text="Bulk Extraction Tool. \nimages in bulk.\n \nThis version is v2.3-CAUST-main.",
     fill="#C9C9C9",
     font=("Inter", 15 * -1)
 )
@@ -257,14 +286,16 @@ canvas.create_text(
     font=("Inter", 15 * -1)
 )
 
-menu_bar = Menu(window, bg="#0C0C0C", fg="#FFFFFF", relief='flat')
+menu_bar = Menu(window, bg="#EB1616", fg="#FFFFFF", relief='flat')
 window.config(menu=menu_bar)
 
 file_menu = Menu(menu_bar, tearoff=0, bg="#0C0C0C", fg="#FFFFFF")
 menu_bar.add_cascade(label="Verify Destination Extraction", menu=file_menu)
-# Assuming the `file_menu` and `menu_bar` are already created as shown in your code snippet
 file_menu.add_command(label="Verify Files in Destination", command=verify_files_in_destination)
 
+file_menu = Menu(menu_bar, tearoff=0, bg="#0C0C0C", fg="#FFFFFF")
+menu_bar.add_cascade(label="Excel Formatting", menu=file_menu)
+file_menu.add_command(label="Excel Formatting", command=verify_files_in_destination)
 
 
 button_1.configure(command=select_search_folder)
