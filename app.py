@@ -1,7 +1,8 @@
 from tkinter import Tk, Canvas, Text, Button, PhotoImage, messagebox, filedialog, Menu
 import os
-import shutil
-from pathlib import Path
+import subprocess
+import tkinter as tk
+from tkinter import messagebox, filedialog
 import openpyxl
 from openpyxl.styles import PatternFill
 
@@ -110,7 +111,7 @@ def verify_files_in_destination():
         sheet.cell(row=row_index, column=1, value=file_basename)
         sheet.cell(row=row_index, column=2, value=status)
     
-    # Save the workbook
+    # Save the workbook and ask user for the save location
     file_path = filedialog.asksaveasfilename(
         defaultextension=".xlsx",
         filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
@@ -120,6 +121,17 @@ def verify_files_in_destination():
     if file_path:  # Check if the user didn't cancel the save dialog
         workbook.save(file_path)
         messagebox.showinfo("Verification Complete", f"The verification result has been saved to:\n{file_path}")
+        open_excel_file(file_path)
+
+def open_excel_file(file_path):
+    try:
+        if os.name == 'nt':  # for Windows
+            os.startfile(file_path)
+        else:  # for macOS and Linux, the following options:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.call([opener, file_path])
+    except Exception as e:
+        messagebox.showerror("Error Opening File", f"An error occurred while trying to open the file: {e}")
 
 window = Tk()
 window.geometry("1050x586")
