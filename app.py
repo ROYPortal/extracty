@@ -1,10 +1,13 @@
 from tkinter import Tk, Canvas, Text, Button, PhotoImage, messagebox, filedialog, Menu
 import os
-import subprocess
-import tkinter as tk
-from tkinter import messagebox, filedialog
+import shutil
+from pathlib import Path
 import openpyxl
 from openpyxl.styles import PatternFill
+import subprocess
+import requests
+import semver
+
 
 OUTPUT_PATH = Path(__file__).parent
 ASSETS_PATH = OUTPUT_PATH / Path("./assets/frame0")  # Adjust this to your actual assets path
@@ -24,70 +27,46 @@ def select_destination_folder():
     entry_2.delete('1.0', 'end')
     entry_2.insert('1.0', folder_selected)
 
+
+
+
+
+
 def find_and_copy_files():
     search_folder = entry_1.get('1.0', 'end').strip()
     destination_folder = entry_2.get('1.0', 'end').strip()
-    file_basenames = entry_3.get('1.0', 'end').strip().split('\n')
+    file_basenames = set(entry_3.get('1.0', 'end').strip().split('\n'))
     
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)
-    
-    found_files = []
+
+    successful_copies = 0
+    unsuccessful_copies = len(file_basenames)  # Start with all as unsuccessful
+
     for root, dirs, files in os.walk(search_folder):
         for file in files:
             file_basename, file_extension = os.path.splitext(file)
             if file_basename in file_basenames:
                 source_path = os.path.join(root, file)
                 destination_path = os.path.join(destination_folder, file)
-                try:
-                    shutil.copy2(source_path, destination_path)
-                    found_files.append((source_path, destination_path, True))
-                except Exception as e:
-                    found_files.append((source_path, destination_path, False))
-    
-    if not found_files:
-        messagebox.showinfo("Result", "No files found from the list.")
-        return
-    
-    successful_copies = [f for f in found_files if f[2]]
-    failed_copies = [f for f in found_files if not f[2]]
-    
-    if len(successful_copies) == len(found_files):
-        messagebox.showinfo("Result", f"Successfully copied {len(successful_copies)} files.")
-    else:
-        messagebox.showinfo("Result", f"Copied {len(successful_copies)}/{len(found_files)} files. Some files may not have been copied successfully.")
-    
-    if messagebox.askyesno("Save List", "Do you want to save the list of found files? This will create an Excel file."):
-        save_found_files_list(found_files)
-    
-    return successful_copies, failed_copies
+                # Before copying, check if the destination file already exists
+                if not os.path.exists(destination_path):
+                    try:
+                        shutil.copy2(source_path, destination_path)
+                        successful_copies += 1
+                        unsuccessful_copies -= 1  # One less unsuccessful copy
+                    except Exception as e:
+                        pass  # Unsuccessful copy remains counted
+
+    # Display a simple message box with the results
+    messagebox.showinfo("Copy Results", f"{successful_copies} Successful | {unsuccessful_copies} Unsuccessful")
 
 
 
-def save_found_files_list(found_files):
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".xlsx",
-        filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-        title="Save the list as..."
-    )
-    if file_path:
-        try:
-            workbook = openpyxl.Workbook()
-            sheet = workbook.active
-            
-            sheet['A1'] = 'PART #'
-            sheet['B1'] = 'STATUS'
-            
-            for row, (source_path, _, status) in enumerate(found_files, start=2):
-                file_name = os.path.splitext(os.path.basename(source_path))[0]
-                status_str = "Success" if status else "Fail"
-                sheet.cell(row=row, column=1, value=file_name)
-                sheet.cell(row=row, column=2, value=status_str)
-            
-            workbook.save(file_path)
-            messagebox.showinfo("Save Successful", "The Excel file has been saved successfully!")
-        except Exception as e:
-            messagebox.showerror("Save Error", f"An error occurred while saving the Excel file: {e}")
+
+
+
+
 
 
 def verify_files_in_destination():
@@ -104,10 +83,13 @@ def verify_files_in_destination():
     sheet['A1'] = 'Item'
     sheet['B1'] = 'Status'
     
+    # Collect all files in the destination folder for faster checking
+    existing_files = set(os.listdir(destination_folder))
+    existing_basenames = {os.path.splitext(file)[0] for file in existing_files}  # Store without extensions
+
     # Check each file and write its status to the sheet
     for row_index, file_basename in enumerate(file_basenames, start=2):
-        files_in_destination = [f for f in os.listdir(destination_folder) if os.path.splitext(f)[0] == file_basename]
-        status = 'Found' if files_in_destination else 'Missing'
+        status = 'FOUND' if file_basename in existing_basenames else 'FAILED'
         sheet.cell(row=row_index, column=1, value=file_basename)
         sheet.cell(row=row_index, column=2, value=status)
     
@@ -121,17 +103,78 @@ def verify_files_in_destination():
     if file_path:  # Check if the user didn't cancel the save dialog
         workbook.save(file_path)
         messagebox.showinfo("Verification Complete", f"The verification result has been saved to:\n{file_path}")
-        open_excel_file(file_path)
 
-def open_excel_file(file_path):
+
+
+
+
+
+
+def get_current_version():
     try:
-        if os.name == 'nt':  # for Windows
-            os.startfile(file_path)
-        else:  # for macOS and Linux, the following options:
-            opener = "open" if sys.platform == "darwin" else "xdg-open"
-            subprocess.call([opener, file_path])
-    except Exception as e:
-        messagebox.showerror("Error Opening File", f"An error occurred while trying to open the file: {e}")
+        with open('version.txt', 'r') as file:
+            return file.read().strip()
+    except FileNotFoundError:
+        return "0.0.0"  # Default to 0.0.0 if version.txt does not exist
+
+def get_latest_version():
+    try:
+        response = requests.get('https://raw.githubusercontent.com/ROYPortal/extracty/main/version.txt')
+        response.raise_for_status()  # Raises an HTTPError for bad responses
+        return response.text.strip()
+    except requests.RequestException as e:
+        print("Failed to fetch the latest version:", e)
+        return None
+
+def download_update():
+    try:
+        updated_script_url = 'https://raw.githubusercontent.com/ROYPortal/extracty/main/app.py'
+        response = requests.get(updated_script_url)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as e:
+        print("Failed to download the update:", e)
+        return None
+
+def apply_update(update_content):
+    try:
+        with open('app.py', 'w') as file:
+            file.write(update_content)
+        return True
+    except IOError as e:
+        print("Failed to apply update:", e)
+        return False
+
+def main():
+    local_version = get_current_version()
+    remote_version = get_latest_version()
+
+    if remote_version and semver.compare(remote_version, local_version) > 0:
+        print(f"An update is available: {local_version} -> {remote_version}")
+        update_content = download_update()
+        if update_content:
+            if input("Would you like to apply the update now? (y/n): ").lower() == 'y':
+                if apply_update(update_content):
+                    print("Update applied successfully. Please restart the application.")
+                else:
+                    print("Update failed to apply.")
+            else:
+                print("Update cancelled by the user.")
+    elif remote_version:
+        print("You are up to date!")
+    else:
+        print("Could not check for updates due to an earlier error.")
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+    
+
+
+
 
 window = Tk()
 window.geometry("1050x586")
