@@ -5,27 +5,23 @@ from pathlib import Path
 import openpyxl
 from openpyxl.styles import PatternFill
 
-# Define the path to the assets
 OUTPUT_PATH = Path(__file__).parent
 ASSETS_PATH = OUTPUT_PATH / Path("./assets/frame0")  # Adjust this to your actual assets path
 
-def relative_to_assets(path: str) -> Path:
+
+def relative_to_assets(path: str) -> str:
     """Utility function to get the absolute path to the assets directory."""
-    return ASSETS_PATH / Path(path)
+    return os.path.join(ASSETS_PATH, path)
 
-
-# Functions to open directory selection dialogs and insert the chosen path into entry fields
 def select_search_folder():
     folder_selected = filedialog.askdirectory()
     entry_1.delete('1.0', 'end')
     entry_1.insert('1.0', folder_selected)
 
-
 def select_destination_folder():
     folder_selected = filedialog.askdirectory()
     entry_2.delete('1.0', 'end')
     entry_2.insert('1.0', folder_selected)
-
 
 def find_and_copy_files():
     search_folder = entry_1.get('1.0', 'end').strip()
@@ -36,7 +32,6 @@ def find_and_copy_files():
         os.makedirs(destination_folder)
     
     found_files = []
-    copy_results = []
     for root, dirs, files in os.walk(search_folder):
         for file in files:
             file_basename, file_extension = os.path.splitext(file)
@@ -56,43 +51,44 @@ def find_and_copy_files():
     successful_copies = [f for f in found_files if f[2]]
     failed_copies = [f for f in found_files if not f[2]]
     
-    # Update message to include verification result
     if len(successful_copies) == len(found_files):
         messagebox.showinfo("Result", f"Successfully copied {len(successful_copies)} files.")
     else:
         messagebox.showinfo("Result", f"Copied {len(successful_copies)}/{len(found_files)} files. Some files may not have been copied successfully.")
     
+    if messagebox.askyesno("Save List", "Do you want to save the list of found files? This will create an Excel file."):
+        save_found_files_list(found_files)
+    
     return successful_copies, failed_copies
 
-def export_to_excel(successful_copies, failed_copies):
-    # Create a workbook and select the active worksheet
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    
-    # Define fills
-    green_fill = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
-    red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
-    
-    # Write headers
-    headers = ['File Path', 'Status']
-    ws.append(headers)
-    
-    # Write data to Excel
-    for file in successful_copies:
-        ws.append([file[1], 'Success'])
-        ws.cell(row=ws.max_row, column=2).fill = green_fill
-    
-    for file in failed_copies:
-        ws.append([file[1], 'Failed'])
-        ws.cell(row=ws.max_row, column=2).fill = red_fill
-    
-    # Save the workbook
-    excel_path = os.path.join(OUTPUT_PATH, "copy_results.xlsx")
-    wb.save(excel_path)
-    messagebox.showinfo("Export Complete", f"Results have been exported to {excel_path}")
 
-def show_about():
-    messagebox.showinfo("About", "Extracty\nFor bulk image operations.\nVersion 1.0")
+
+def save_found_files_list(found_files):
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".xlsx",
+        filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+        title="Save the list as..."
+    )
+    if file_path:
+        try:
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            
+            sheet['A1'] = 'PART #'
+            sheet['B1'] = 'STATUS'
+            
+            for row, (source_path, _, status) in enumerate(found_files, start=2):
+                file_name = os.path.splitext(os.path.basename(source_path))[0]
+                status_str = "Success" if status else "Fail"
+                sheet.cell(row=row, column=1, value=file_name)
+                sheet.cell(row=row, column=2, value=status_str)
+            
+            workbook.save(file_path)
+            messagebox.showinfo("Save Successful", "The Excel file has been saved successfully!")
+        except Exception as e:
+            messagebox.showerror("Save Error", f"An error occurred while saving the Excel file: {e}")
+
+
 
 def verify_files_in_destination():
     destination_folder = entry_2.get('1.0', 'end').strip()
@@ -153,7 +149,7 @@ canvas.create_text(
     38.0,
     77.0,
     anchor="nw",
-    text="Bulk Extraction Tool. \nimages in bulk.\n \nThis version is v2.3-CAUST-main.",
+    text="Bulk Extraction Tool. \nimages in bulk. Made by Liam Caust @ Galvins Plumbing Supplies\n \nThis version is v2.8-CAUST-branch02.\n",
     fill="#C9C9C9",
     font=("Inter", 15 * -1)
 )
@@ -293,9 +289,6 @@ file_menu = Menu(menu_bar, tearoff=0, bg="#0C0C0C", fg="#FFFFFF")
 menu_bar.add_cascade(label="Verify Destination Extraction", menu=file_menu)
 file_menu.add_command(label="Verify Files in Destination", command=verify_files_in_destination)
 
-file_menu = Menu(menu_bar, tearoff=0, bg="#0C0C0C", fg="#FFFFFF")
-menu_bar.add_cascade(label="Excel Formatting", menu=file_menu)
-file_menu.add_command(label="Excel Formatting", command=verify_files_in_destination)
 
 
 button_1.configure(command=select_search_folder)
