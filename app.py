@@ -89,7 +89,6 @@ def save_found_files_list(found_files):
             messagebox.showerror("Save Error", f"An error occurred while saving the Excel file: {e}")
 
 
-
 def verify_files_in_destination():
     destination_folder = entry_2.get('1.0', 'end').strip()
     file_basenames = entry_3.get('1.0', 'end').strip().split('\n')
@@ -98,18 +97,29 @@ def verify_files_in_destination():
         messagebox.showinfo("Verification Result", "Destination folder does not exist.")
         return
     
-    missing_files = []
-    for file_basename in file_basenames:
-        files_in_destination = [f for f in os.listdir(destination_folder) if os.path.splitext(f)[0] == file_basename]
-        if not files_in_destination:
-            missing_files.append(file_basename)
+    # Create a new workbook and select the active worksheet
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet['A1'] = 'Item'
+    sheet['B1'] = 'Status'
     
-    if not missing_files:
-        messagebox.showinfo("Verification Result", "All listed files are present in the destination folder.")
-    else:
-        missing_files_str = ", ".join(missing_files)
-        messagebox.showinfo("Verification Result", f"The following files are missing: {missing_files_str}")
-
+    # Check each file and write its status to the sheet
+    for row_index, file_basename in enumerate(file_basenames, start=2):
+        files_in_destination = [f for f in os.listdir(destination_folder) if os.path.splitext(f)[0] == file_basename]
+        status = 'Found' if files_in_destination else 'Missing'
+        sheet.cell(row=row_index, column=1, value=file_basename)
+        sheet.cell(row=row_index, column=2, value=status)
+    
+    # Save the workbook
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".xlsx",
+        filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+        title="Save the verification result as..."
+    )
+    
+    if file_path:  # Check if the user didn't cancel the save dialog
+        workbook.save(file_path)
+        messagebox.showinfo("Verification Complete", f"The verification result has been saved to:\n{file_path}")
 
 window = Tk()
 window.geometry("1050x586")
