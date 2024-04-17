@@ -189,8 +189,6 @@ def verify_files_in_destination():
 
 
 
-
-
 def get_current_version():
     try:
         with open('version.txt', 'r') as file:
@@ -336,7 +334,7 @@ canvas.create_text(
 
     anchor="nw",
 
-    text="Bulk Extraction Tool. \nimages in bulk. Made by Liam Caust @ Galvins Plumbing Supplies\n \nThis version is v1.0.7-CAUST-branch02.\n",
+    text="Bulk Extraction Tool. \nimages in bulk. Made by Liam Caust @ Galvins Plumbing Supplies\n \nThis version is v1.0.6-CAUST-branch02.\n",
 
     fill="#C9C9C9",
 
@@ -633,4 +631,3 @@ button_3.configure(command=find_and_copy_files)
 window.resizable(False, False)
 
 window.mainloop()
-
