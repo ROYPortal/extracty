@@ -367,7 +367,7 @@ canvas.create_text(
 
     anchor="nw",
 
-    text="Bulk Extraction Tool. \nimages in bulk. Made by Liam Caust @ Galvins Plumbing Supplies\n \nThis version is v2.8-CAUST-branch02.\n",
+    text="Bulk Extraction Tool. \nimages in bulk. Made by Liam Caust @ Galvins Plumbing Supplies\n \nThis version is v1.0.6-CAUST-branch02.\n",
 
     fill="#C9C9C9",
 
