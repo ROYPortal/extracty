@@ -1171,4 +1171,3 @@ window.resizable(False, False)
 
 
 window.mainloop()
-
