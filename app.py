@@ -107,70 +107,58 @@ def find_and_copy_files():
 
 
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_current_version():
+    path = 'version.txt'
     try:
-        with open('version.txt', 'r') as file:
+        with open(path, 'r') as file:
             version = file.read().strip()
-            # Validate the version format to be sure it's a semantic version
             if semver.VersionInfo.isvalid(version):
+                logging.info(f"Current version read successfully: {version}")
                 return version
             else:
                 logging.error("Invalid version format in local version file.")
                 return "0.0.0"
     except FileNotFoundError:
-        logging.warning("Local version file not found. Assuming version 0.0.0.")
+        logging.warning(f"Local version file not found at {path}. Assuming version 0.0.0.")
         return "0.0.0"
 
 def get_latest_version():
+    url = 'https://raw.githubusercontent.com/ROYPortal/extracty/main/version.txt'
     try:
-        response = requests.get('https://raw.githubusercontent.com/ROYPortal/extracty/main/version.txt', timeout=10)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         latest_version = response.text.strip()
         if semver.VersionInfo.isvalid(latest_version):
+            logging.info(f"Latest version fetched successfully: {latest_version}")
             return latest_version
         else:
             logging.error("Invalid version format in fetched version file.")
             return None
     except requests.RequestException as e:
-        messagebox.showerror("Update Error", f"Failed to fetch the latest version: {e}")
+        logging.error(f"Failed to fetch the latest version from {url} due to an error: {e}")
         return None
 
-def download_file(url, path):
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        with open(path, 'w') as file:
-            file.write(response.text)
-        return True
-    except requests.RequestException as e:
-        messagebox.showerror("Update Error", f"Failed to download {path}: {e}")
-        return False
-
-def apply_update(new_version):
-    app_success = download_file('https://raw.githubusercontent.com/ROYPortal/extracty/main/app.py', 'app.py')
-    version_success = download_file('https://raw.githubusercontent.com/ROYPortal/extracty/main/version.txt', 'version.txt')
-    
-    if app_success and version_success:
-        messagebox.showinfo("Update Success", f"Update applied successfully to version {new_version}. Please restart the application.")
-        return True
-    else:
-        messagebox.showerror("Update Error", "Failed to apply update completely.")
-        return False
-
 def check_for_updates():
+    logging.info("Checking for updates...")
     local_version = get_current_version()
     remote_version = get_latest_version()
     if remote_version and semver.compare(remote_version, local_version) > 0:
-        if messagebox.askyesno("Update Available", f"An update is available: {local_version} -> {remote_version}\nWould you like to apply the update now?"):
-            return apply_update(remote_version)
+        print(f"An update is available: {local_version} -> {remote_version}")
+        user_response = input("Would you like to apply the update now? (yes/no): ")
+        if user_response.lower() in ['yes', 'y']:
+            print("Update applied.")
         else:
-            messagebox.showinfo("Update Cancelled", "Update cancelled by the user.")
+            print("Update cancelled by the user.")
     elif remote_version:
-        messagebox.showinfo("Update Status", "You are up to date!")
+        print("You are up to date!")
     else:
-        messagebox.showerror("Update Error", "Could not check for updates due to an earlier error.")
+        print("Could not check for updates due to an earlier error.")
+
+# Ensure you call the function at the end of your script
+if __name__ == "__main__":
+    check_for_updates()
 
 
 
