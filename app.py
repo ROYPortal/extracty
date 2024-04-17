@@ -141,72 +141,41 @@ def find_and_copy_files():
 
 
 def verify_files_in_destination():
-
+    # Assuming `entry_2` and `entry_3` are defined in the larger context of your application.
     destination_folder = entry_2.get('1.0', 'end').strip()
-
-    file_basenames = entry_3.get('1.0', 'end').strip().split('\n')
-
-    
+    file_basenames = {line.strip() for line in entry_3.get('1.0', 'end').strip().split('\n') if line.strip()}
 
     if not os.path.exists(destination_folder):
-
         messagebox.showinfo("Verification Result", "Destination folder does not exist.")
-
         return
 
-    
-
     # Create a new workbook and select the active worksheet
-
     workbook = openpyxl.Workbook()
-
     sheet = workbook.active
-
     sheet['A1'] = 'Item'
-
     sheet['B1'] = 'Status'
 
-    
-
     # Collect all files in the destination folder for faster checking
-
-    existing_files = set(os.listdir(destination_folder))
-
-    existing_basenames = {os.path.splitext(file)[0] for file in existing_files}  # Store without extensions
-
-
+    existing_files = os.listdir(destination_folder)
+    existing_basenames = {os.path.splitext(file)[0] for file in existing_files}
 
     # Check each file and write its status to the sheet
-
-    for row_index, file_basename in enumerate(file_basenames, start=2):
-
+    for row_index, file_basename in enumerate(sorted(file_basenames), start=2):
         status = 'FOUND' if file_basename in existing_basenames else 'FAILED'
-
         sheet.cell(row=row_index, column=1, value=file_basename)
-
         sheet.cell(row=row_index, column=2, value=status)
 
-    
-
     # Save the workbook and ask user for the save location
-
     file_path = filedialog.asksaveasfilename(
-
         defaultextension=".xlsx",
-
         filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-
         title="Save the verification result as..."
-
     )
 
-    
-
     if file_path:  # Check if the user didn't cancel the save dialog
-
         workbook.save(file_path)
-
         messagebox.showinfo("Verification Complete", f"The verification result has been saved to:\n{file_path}")
+
 
 
 
