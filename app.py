@@ -16,8 +16,7 @@ import requests
 
 import semver
 
-
-
+import logging
 
 
 OUTPUT_PATH = Path(__file__).parent
@@ -25,15 +24,11 @@ OUTPUT_PATH = Path(__file__).parent
 ASSETS_PATH = OUTPUT_PATH / Path("./assets/frame0")  # Adjust this to your actual assets path
 
 
-
-
-
 def relative_to_assets(path: str) -> str:
 
     """Utility function to get the absolute path to the assets directory."""
 
     return os.path.join(ASSETS_PATH, path)
-
 
 
 def select_search_folder():
@@ -45,7 +40,6 @@ def select_search_folder():
     entry_1.insert('1.0', folder_selected)
 
 
-
 def select_destination_folder():
 
     folder_selected = filedialog.askdirectory()
@@ -53,17 +47,6 @@ def select_destination_folder():
     entry_2.delete('1.0', 'end')
 
     entry_2.insert('1.0', folder_selected)
-
-
-
-
-
-
-
-
-
-
-
 
 
 def find_and_copy_files():
@@ -124,91 +107,39 @@ def find_and_copy_files():
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def verify_files_in_destination():
-    # Assuming `entry_2` and `entry_3` are defined in the larger context of your application.
-    destination_folder = entry_2.get('1.0', 'end').strip()
-    file_basenames = {line.strip() for line in entry_3.get('1.0', 'end').strip().split('\n') if line.strip()}
-
-    if not os.path.exists(destination_folder):
-        messagebox.showinfo("Verification Result", "Destination folder does not exist.")
-        return
-
-    # Create a new workbook and select the active worksheet
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet['A1'] = 'Item'
-    sheet['B1'] = 'Status'
-
-    # Collect all files in the destination folder for faster checking
-    existing_files = os.listdir(destination_folder)
-    existing_basenames = {os.path.splitext(file)[0] for file in existing_files}
-
-    # Check each file and write its status to the sheet
-    for row_index, file_basename in enumerate(sorted(file_basenames), start=2):
-        status = 'FOUND' if file_basename in existing_basenames else 'FAILED'
-        sheet.cell(row=row_index, column=1, value=file_basename)
-        sheet.cell(row=row_index, column=2, value=status)
-
-    # Save the workbook and ask user for the save location
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".xlsx",
-        filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-        title="Save the verification result as..."
-    )
-
-    if file_path:  # Check if the user didn't cancel the save dialog
-        workbook.save(file_path)
-        messagebox.showinfo("Verification Complete", f"The verification result has been saved to:\n{file_path}")
-
-
-
-
-
-
-
-
-
-
-
-
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_current_version():
     try:
         with open('version.txt', 'r') as file:
-            return file.read().strip()
+            version = file.read().strip()
+            # Validate the version format to be sure it's a semantic version
+            if semver.VersionInfo.isvalid(version):
+                return version
+            else:
+                logging.error("Invalid version format in local version file.")
+                return "0.0.0"
     except FileNotFoundError:
-        print("Local version file not found. Assuming version 0.0.0.")
+        logging.warning("Local version file not found. Assuming version 0.0.0.")
         return "0.0.0"
 
 def get_latest_version():
     try:
-        response = requests.get('https://raw.githubusercontent.com/ROYPortal/extracty/main/version.txt')
-        response.raise_for_status()  # Ensure we only proceed if request was successful
-        return response.text.strip()
+        response = requests.get('https://raw.githubusercontent.com/ROYPortal/extracty/main/version.txt', timeout=10)
+        response.raise_for_status()
+        latest_version = response.text.strip()
+        if semver.VersionInfo.isvalid(latest_version):
+            return latest_version
+        else:
+            logging.error("Invalid version format in fetched version file.")
+            return None
     except requests.RequestException as e:
         messagebox.showerror("Update Error", f"Failed to fetch the latest version: {e}")
         return None
 
 def download_file(url, path):
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         with open(path, 'w') as file:
             file.write(response.text)
@@ -248,7 +179,12 @@ def check_for_updates():
 
 
 
-    
+
+
+
+
+
+
 
 
 
@@ -334,7 +270,7 @@ canvas.create_text(
 
     anchor="nw",
 
-    text="Bulk Extraction Tool. \nimages in bulk. Made by Liam Caust @ Galvins Plumbing Supplies\n \nThis version is v1.0.6-CAUST-branch02.\n",
+    text="Bulk Extraction Tool. \nThis version is v1.0.6-CAUST-branch02.\n",
 
     fill="#C9C9C9",
 
@@ -590,7 +526,55 @@ canvas.create_text(
 
     anchor="nw",
 
-    text="Enter file names here.",
+    text="Enter file names here. Case sensitive. Remove extensions on list",
+
+    fill="#FFFFFF",
+
+    font=("Inter", 15 * -1)
+
+)
+
+canvas.create_text(
+
+    140.0,
+
+    450.0,
+
+    anchor="nw",
+
+    text="Dont Let Liam code again! He's shit!",
+
+    fill="#FFFFFF",
+
+    font=("Inter", 15 * -1)
+
+)
+
+canvas.create_text(
+
+    30.0,
+
+    250.0,
+
+    anchor="nw",
+
+    text="Destination Folder",
+
+    fill="#FFFFFF",
+
+    font=("Inter", 15 * -1)
+
+)
+
+canvas.create_text(
+
+    30.0,
+
+    145.0,
+
+    anchor="nw",
+
+    text="Viewing Folder",
 
     fill="#FFFFFF",
 
@@ -599,22 +583,9 @@ canvas.create_text(
 )
 
 
-
 menu_bar = Menu(window, bg="#EB1616", fg="#FFFFFF", relief='flat')
 
 window.config(menu=menu_bar)
-
-
-
-file_menu = Menu(menu_bar, tearoff=0, bg="#0C0C0C", fg="#FFFFFF")
-
-menu_bar.add_cascade(label="Verify Destination Extraction", menu=file_menu)
-
-file_menu.add_command(label="Verify Files in Destination", command=verify_files_in_destination)
-
-
-
-
 
 
 
